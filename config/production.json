@@ -1,0 +1,10 @@
+{
+    "origin": "https://50d07e0463ca.ngrok.io/",
+    "front": "",
+    "fb-callback": "https://50d07e0463ca.ngrok.io/auth/facebook/callback",
+    "g-callback": "https://50d07e0463ca.ngrok.io/auth/google/callback", 
+    "db": {
+        "name": "production"
+    },
+    "SlashENV":"/"
+}

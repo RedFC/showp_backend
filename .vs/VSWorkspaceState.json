@@ -1,0 +1,12 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\app",
+    "\\app\\http",
+    "\\app\\http\\controller",
+    "\\app\\http\\controller\\api",
+    "\\app\\http\\controller\\api\\user"
+  ],
+  "SelectedNode": "\\app\\http\\controller\\api\\user\\user.controller.ts",
+  "PreviewInSolutionExplorer": false
+}

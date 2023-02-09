@@ -1,0 +1,382 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["selectRelationCount"]
+}
+
+//*************** PRODUCT LEVEL ***************//
+model Product {
+  id            String          @id @default(uuid())
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  published     Boolean         @default(false)
+  title         String          @db.VarChar(50)
+  description   String          @db.VarChar(255)
+  baseCost      Int
+  currency      String
+  refundable    Boolean         @default(false)
+  quantity      Int             @default(0)
+  rating        Rating[] // Many ratings
+  categories    SubCategory[]   @relation(references: [id]) // Many categories
+  tags          Tag[]           @relation(references: [name]) // Many tags 
+  review        Review[]
+  user          User?           @relation(fields: [userId], references: [id])
+  userId        String?
+  images        ProductImages[] @relation(references: [cloudinaryId])
+  isBlocked     Boolean         @default(false)
+  ReportProduct ReportProduct[]
+  OrderDetails  OrderDetails[]
+  userRating    UserRating[]    @relation("OnProduct")
+
+}
+
+//*************** IMAGES LEVEL ***************//
+model ProductImages {
+  cloudinaryId String     @id
+  path         String
+  type         ImageTypes @default(PRODUCT)
+  products     Product[]  @relation(references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+enum ImageTypes {
+  PRODUCT
+}
+
+model Tag {
+  name      String    @id
+  products  Product[] @relation(references: [id]) // Many products
+  reviews   Review[]  @relation(references: [id]) // Many reviews
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Category {
+  id          String        @id @default(uuid())
+  name        String        @unique
+  subCategory SubCategory[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model SubCategory {
+  id         String    @id @default(uuid())
+  name       String
+  product    Product[] @relation(references: [id]) // Many products
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+//*************** REVIEW LEVEL ***************//
+
+model Review {
+  id           String         @id @default(uuid())
+  media        String
+  title        String
+  thumbnail    String
+  tags         Tag[]          @relation(references: [name]) // Many tags 
+  products     Product?       @relation(fields: [productId], references: [id])
+  productId    String?
+  user         User?          @relation(fields: [userId], references: [id])
+  userId       String?
+  rating       Rating         @relation(fields: [ratingId], references: [id])
+  ratingId     String
+  Comments     Comments[]     @relation(references: [id])
+  ReportReview ReportReview[]
+  ReviewLike   ReviewLike[]
+  isActive     Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  duration     String
+}
+
+model ReviewLike {
+  user      User     @relation(references: [id], fields: [userId])
+  userId    String
+  review    Review   @relation(references: [id], fields: [reviewId])
+  reviewId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@id([userId, reviewId])
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  stars     Int      @default(0) @db.SmallInt
+  message   String
+  products  Product? @relation(fields: [productId], references: [id])
+  productId String?
+  Review    Review?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//*************** USER LEVEL ***************//
+model User {
+  id            String          @id @default(uuid())
+  email         String?         @unique
+  blocked       Boolean         @default(false)
+  gcm           GCM[]
+  role          Role            @default(USER) // One role
+  profile       Profile? // One profile (optional)
+  following     Follows[]       @relation("FollowsUser") // Containing other users IDS
+  followers     Follows[]       @relation("FollowedBy") // Containing my ID with other users
+  blockedUsers  BlockedList[]   @relation("BlockedUser") // Containing other users IDS
+  blockedMe     BlockedList[]   @relation("BlockedBy") // Containing my ID with other users
+  posts         Product[] // Many products
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  Review        Review[]
+  comments      Comments[]
+  orders        Orders[]
+  ReturnPolicy  ReturnPolicy? //One Return Policy
+  ReportProduct ReportProduct[]
+  ReportReview  ReportReview[]
+  ReportedBy    ReportUser[]    @relation("ReportedBy")
+  ReportedFor   ReportUser[]    @relation("ReportedFor")
+  createdBy     Rooms[]         @relation("createdBy")
+  createdWith   Rooms[]         @relation("createdWith")
+  ReviewLike    ReviewLike[]
+  Rating        UserRating[]    @relation("userId")
+  SellerId      UserRating[]    @relation("sellerId")
+  messgae       Message[]
+}
+
+model GCM {
+  id        String   @unique
+  platform  String
+  user      User?    @relation(fields: [userId], references: [id]) // One user (optional)
+  userId    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Profile {
+  name         String
+  about        String?
+  username     String   @unique
+  phoneNo      String   @unique
+  profileImage String?  @default("https://easy-1-jq7udywfca-uc.a.run.app/public/images/user.png")
+  followers    Int      @default(0)
+  following    Int      @default(0)
+  user         User     @relation(fields: [userId], references: [id]) // Belongs to user
+  userId       String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@id([userId, username])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+//*************** FOLLOW LEVEL ***************//
+model Follows {
+  id        String     @id @default(uuid())
+  following User       @relation(name: "FollowedBy", fields: [followId], references: [id])
+  followId  String
+  user      User       @relation(name: "FollowsUser", fields: [userId], references: [id])
+  userId    String
+  status    StatusType @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum StatusType {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+//*************** BLOCK lIST LEVEL ***************//
+model BlockedList {
+  id        String   @id @default(uuid())
+  blocked   User     @relation(name: "BlockedUser", fields: [blockedId], references: [id])
+  blockedId String
+  user      User     @relation(name: "BlockedBy", fields: [userId], references: [id])
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//*************** COMMENTS LEVEL ***************//
+model Comments {
+  id        String   @id @default(uuid())
+  comment   String
+  user      User     @relation(fields: [userId], references: [id]) // Belongs to user
+  userId    String
+  reviews   Review[] @relation(references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//*************** ORDER LEVEL ***************//
+
+model Orders {
+  id              String        @id @default(uuid())
+  fullname        String
+  email           String
+  number          String
+  shippingAddress String
+  user            User          @relation(fields: [userId], references: [id]) // Belongs to user
+  userId          String
+  status          OrderStatus   @default(PENDING)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  OrderDetails    OrderDetails?
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELED
+}
+
+model OrderDetails {
+  id        String   @id @default(uuid())
+  order     Orders   @relation(fields: [orderId], references: [id])
+  orderId   String
+  product   Product  @relation(references: [id], fields: [productId])
+  qty       Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  productId String
+
+}
+
+//*************** TERM'S & CONDITION LEVEL ***************//
+
+model TermsAndConditions {
+  id                 String   @id @default(uuid())
+  termsandconditions String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+//*************** RETURN POLICY LEVEL ***************//
+
+model ReturnPolicy {
+  user         User     @relation(fields: [id], references: [id])
+  id           String   @id
+  returnpolicy String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+//*************** ABOUT US LEVEL ***************//
+
+model AboutUs {
+  id        String   @id @default(uuid())
+  aboutus   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+//*************** CONTACT US LEVEL ***************//
+
+model ContactUs {
+  id          String   @id @default(uuid())
+  fullname    String
+  phonenumber String
+  email       String
+  issue       String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+//*************** REPORT LEVEL ***************//
+
+model ReportProduct {
+  id         String       @id @default(uuid())
+  product    Product      @relation(fields: [reportId], references: [id])
+  reportId   String
+  user       User         @relation(fields: [reportedBy], references: [id])
+  reportedBy String
+  message    String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model ReportReview {
+  id         String       @id @default(uuid())
+  review     Review       @relation(fields: [reportId], references: [id])
+  reportId   String
+  user       User         @relation(fields: [reportedBy], references: [id])
+  reportedBy String
+  message    String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+model ReportUser {
+  id         String       @id @default(uuid())
+  user       User         @relation("ReportedFor", fields: [reportId], references: [id])
+  reportId   String
+  reporter   User         @relation("ReportedBy", fields: [reportedBy], references: [id])
+  reportedBy String
+  message    String
+  status     ReportStatus @default(PENDING)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+}
+
+enum ReportStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Rooms {
+  userOne     User?    @relation("createdBy", fields: [createdBy], references: [id])
+  createdBy   String    
+  userTwo     User?    @relation("createdWith", fields: [createdWith], references: [id])
+  createdWith String
+  message   Message[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@id([createdBy, createdWith])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  message   String
+  user      User     @relation(fields: [sender], references: [id])
+  sender    String
+  room      Rooms   @relation(fields: [sender, reciever], references: [createdBy, createdWith])
+  reciever    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserRating {
+  stars     Int       @default(0) @db.SmallInt
+  message   String
+  user      User      @relation("userId", fields: [userId], references: [id])
+  userId    String
+  seller    User      @relation("sellerId", fields: [sellerId], references: [id])
+  sellerId  String
+  product   Product @relation("OnProduct",fields: [productId], references: [id])
+  productId String    
+  RatingStatus RatingStatus @default(Default)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@id([userId, sellerId,productId])
+}
+enum RatingStatus{
+  Default
+  Edited
+}
